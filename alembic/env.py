@@ -1,5 +1,5 @@
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import create_engine
 from alembic import context
 
 import sys
@@ -18,10 +18,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Fix typo here
 target_metadata = Base.metadata
 
-# Use actual database URL from app config
 config.set_main_option('sqlalchemy.url', os.getenv('DATABASE_URL'))
 
 def run_migrations_offline() -> None:
@@ -36,11 +34,7 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 def run_migrations_online() -> None:
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    connectable = create_engine(os.getenv('DATABASE_URL'))
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
@@ -48,6 +42,9 @@ def run_migrations_online() -> None:
         )
         with context.begin_transaction():
             context.run_migrations()
+
+print("Alembic using DB:", os.getenv('DATABASE_URL'))
+
 
 if context.is_offline_mode():
     run_migrations_offline()
