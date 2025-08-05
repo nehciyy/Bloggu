@@ -18,6 +18,14 @@ class CommentType:
     user_id: int
 
 @strawberry.type
+class CommentHistoryType:
+    id: int
+    comment_id: int
+    timestamp: datetime
+    old_value: str
+    new_value: str
+
+@strawberry.type
 class Query:
     @strawberry.field
     def all_users(self, info) -> List[UserType]:
@@ -39,9 +47,19 @@ class Query:
         db: Session = next(database.get_db())
         return db.query(models.Comment).filter(models.Comment.id == comment_id).first()
 
+    @strawberry.field
+    def all_comment_histories(self, info) -> List[CommentHistoryType]:
+        db: Session = next(database.get_db())
+        return db.query(models.CommentHistory).all()
+
+    @strawberry.field
+    def comment_history_by_id(self, info, history_id: int) -> Optional[CommentHistoryType]:
+        db: Session = next(database.get_db())
+        return db.query(models.CommentHistory).filter(models.CommentHistory.id == history_id).first()
+
 @strawberry.type
 class Mutation:
-##USER MUTATIONS
+    ##USER MUTATIONS
     @strawberry.mutation
     def create_user(self, info, username: str, password: str, group: str) -> UserType:
         db: Session = next(database.get_db())
@@ -119,6 +137,23 @@ class Mutation:
         db.delete(comment)
         db.commit()
         return True
+
+## COMMENT HISTORY MUTATIONS
+    @strawberry.mutation
+    def create_comment_history(self, info, comment_id: int, timestamp: datetime, old_value: str, new_value: str) -> CommentHistoryType:
+        db: Session = next(database.get_db())
+        db_history = models.CommentHistory(comment_id=comment_id, timestamp=timestamp, old_value=old_value, new_value=new_value)
+        db.add(db_history)
+        db.commit()
+        db.refresh(db_history)
+        return CommentHistoryType(
+            id=db_history.id,
+            comment_id=db_history.comment_id,
+            timestamp=db_history.timestamp,
+            old_value=db_history.old_value,
+            new_value=db_history.new_value
+        )
+
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)
 graphql_app = GraphQLRouter(schema)
