@@ -5,3 +5,4 @@ psycopg2-binary
 bcrypt
 alembic
 strawberry-graphql[fastapi]
+pyjwt
