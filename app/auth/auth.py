@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 
-def get_current_user(request: Request) -> User:
+def get_current_user(request: Request, db: Session) -> User:
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -20,7 +20,6 @@ def get_current_user(request: Request) -> User:
     except Exception:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
-    db: Session = next(get_db())
     user = db.query(User).filter(User.username == username).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
