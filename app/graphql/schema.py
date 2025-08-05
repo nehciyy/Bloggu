@@ -12,6 +12,12 @@ class UserType:
     group: str
 
 @strawberry.type
+class CommentType:
+    id: int
+    content: str
+    user_id: int
+
+@strawberry.type
 class Query:
     @strawberry.field
     def all_users(self, info) -> List[UserType]:
@@ -22,10 +28,20 @@ class Query:
     def user_by_id(self, info, user_id: int) -> Optional[UserType]:
         db: Session = next(database.get_db())
         return db.query(models.User).filter(models.User.id == user_id).first()
+    
+    @strawberry.field
+    def all_comments(self, info) -> List[CommentType]:
+        db: Session = next(database.get_db())
+        return db.query(models.Comment).all()
+
+    @strawberry.field
+    def comment_by_id(self, info, comment_id: int) -> Optional[CommentType]:
+        db: Session = next(database.get_db())
+        return db.query(models.Comment).filter(models.Comment.id == comment_id).first()
 
 @strawberry.type
 class Mutation:
-    ##USER MUTATIONS
+##USER MUTATIONS
     @strawberry.mutation
     def create_user(self, info, username: str, password: str, group: str) -> UserType:
         db: Session = next(database.get_db())
@@ -58,6 +74,49 @@ class Mutation:
         if not user:
             return False
         db.delete(user)
+        db.commit()
+        return True
+    
+## COMMENT MUTATIONS
+    @strawberry.mutation
+    def create_comment(self, info, user_id: int, content: str) -> CommentType:
+        db: Session = next(database.get_db())
+        db_comment = models.Comment(user_id=user_id, content=content)
+        db.add(db_comment)
+        db.commit()
+        db.refresh(db_comment)
+        return CommentType(id=db_comment.id, user_id=db_comment.user_id, content=db_comment.content)
+    
+    @strawberry.mutation
+    def update_comment(self, info, comment_id: int, new_content: str) -> CommentType:
+        db: Session = next(database.get_db())
+        comment = db.query(models.Comment).filter(models.Comment.id == comment_id).first()
+        if not comment:
+            raise Exception("Comment not found")
+
+        old_value = comment.content
+        comment.content = new_content
+
+        db_history = models.CommentHistory(
+            comment_id=comment.id,
+            timestamp=datetime.utcnow(),
+            old_value=old_value,
+            new_value=new_content
+        )
+        db.add(db_history)
+        
+        db.commit()
+        db.refresh(comment)
+        return CommentType(id=comment.id, user_id=comment.user_id, content=comment.content)
+
+
+    @strawberry.mutation
+    def delete_comment(self, info, comment_id: int) -> bool:
+        db: Session = next(database.get_db())
+        comment = db.query(models.Comment).filter(models.Comment.id == comment_id).first()
+        if not comment:
+            return False
+        db.delete(comment)
         db.commit()
         return True
 
